@@ -34,7 +34,7 @@ class PSL:
         self.compiled_ = False
 
     # public
-    def fit(self, y, y_hat, target_col):
+    def fit(self, y, y_hat, target_col, fold=None):
         """
         Train a PSL model.
             y: true labels for target nodes. shape: (n_samples,).
@@ -42,13 +42,13 @@ class PSL:
             target_col: list of target_ids. shape: (n_samples,).
         """
 
-        target_priors, relations_dict, target_name = self.relations_func(y_hat, target_col, self.relations)
+        target_priors, relations_dict, target_name = self.relations_func(y_hat, target_col, self.relations, fold=fold)
         self._generate_files(target_priors, relations_dict, target_name=target_name, y_true=y)
         self._train(target_name, target_col, y_hat, y)
         self.fitted_ = True
         return self
 
-    def inference(self, y_hat, target_col):
+    def inference(self, y_hat, target_col, fold=None):
         """
         Joint inference using PSL.
             y_hat: priors for target nodes. shape: (n_samples,).
@@ -56,7 +56,7 @@ class PSL:
         """
 
         check_is_fitted(self, 'fitted_')
-        target_priors, relations_dict, target_name = self.relations_func(y_hat, target_col, self.relations)
+        target_priors, relations_dict, target_name = self.relations_func(y_hat, target_col, self.relations, fold=fold)
         self._generate_files(target_priors, relations_dict, target_name=target_name)
         y_hat = self._inference(target_name, target_col, y_hat)
         return y_hat

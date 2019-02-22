@@ -39,7 +39,7 @@ class Joint:
             shutil.rmtree(self.working_dir)
         os.makedirs(self.working_dir)
 
-    def fit(self, y, y_hat, target_col):
+    def fit(self, y, y_hat, target_col, fold=None):
         """Trains a PGM model.
             y: true labels for target nodes. shape: (n_samples,).
             y_hat: priors for target nodes. shape: (n_samples,).
@@ -48,10 +48,10 @@ class Joint:
 
         pgm_class = PSL if self.pgm_type == 'psl' else MRF
         pgm = pgm_class(self.relations, self.relations_func, self.working_dir)
-        self.pgm_ = pgm.fit(y, y_hat, target_col)
+        self.pgm_ = pgm.fit(y, y_hat, target_col, fold=fold)
         return self
 
-    def inference(self, y_hat, target_col):
+    def inference(self, y_hat, target_col, fold=None):
         """Performs joint inference.
             y_hat: priors for target nodes. shape: (n_samples,).
             target_col: list of target_ids. shape: (n_samples,).
@@ -60,5 +60,5 @@ class Joint:
         assert len(y_hat) == len(target_col)
         check_is_fitted(self, 'pgm_')
 
-        y_hat = self.pgm_.inference(y_hat, target_col)
+        y_hat = self.pgm_.inference(y_hat, target_col, fold=fold)
         return y_hat

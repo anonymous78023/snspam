@@ -7,6 +7,7 @@ from time import time
 from sklearn.base import clone
 from sklearn.model_selection import PredefinedSplit
 from sklearn.model_selection import GridSearchCV
+from scipy import sparse
 
 
 def cross_val_predict(X, y, model, param_grid=None, group_ids=None, num_cvfolds=10, num_tunefolds=3, seed=69,
@@ -79,3 +80,44 @@ def generate_folds(X, group_ids=None, num_folds=10, seed=69):
         df['fold'] = df['fold'].apply(int)
         folds = df['fold']
     return folds
+
+
+def hstack(blocks):
+    """Horizontally stacks sparse or non-sparse blocks."""
+
+    # checks if all blocks are sparse
+    sparse_blocks = 0
+    for block in blocks:
+        if sparse.issparse(block):
+            sparse_blocks += 1
+
+    # stacks the blocks together
+    if sparse_blocks == len(blocks):
+        result = sparse.hstack(blocks)
+    elif sparse_blocks == 0:
+        result = np.hstack(blocks)
+    else:
+        raise ValueError('Sparse and non-sparse blocks present!')
+
+    return result
+
+
+def array_split(X, splits):
+    """Splits sparse array into equal-sized pieces."""
+
+    assert splits > 1
+
+    array_list = []
+    n = X.shape[0]
+    incrementer = int(n / splits)
+
+    for i in range(1, splits+1):
+
+        if i == splits:
+            array_fragment = X[(i - 1) * incrementer:]
+        else:
+            array_fragment = X[(i - 1) * incrementer: i * incrementer]
+
+        array_list.append(array_fragment)
+
+    return np.array(array_list)

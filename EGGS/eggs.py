@@ -55,8 +55,8 @@ class EGGS:
     def __str__(self):
         return '%s' % self.get_params()
 
-    def fit(self, X, y, target_col):
-        X, y = check_X_y(X, y)
+    def fit(self, X, y, target_col, X_val=None, y_val=None, target_col_val=None, fold=None):
+        X, y = check_X_y(X, y, accept_sparse=True)
         if y.dtype == np.float and not np.all(np.mod(y, 1) == 0):
             raise ValueError('Unknown label type: ')
         self.n_feats_ = X.shape[1]
@@ -66,19 +66,20 @@ class EGGS:
         if self.joint_model is not None:
             assert self.relations is not None
             assert self.pgm_func is not None
-            assert self.validation_size > 0.0 and self.validation_size < 1.0
 
-            split = len(X) - int(len(X) * self.validation_size)
-            X_val, y_val, target_col_val = X[split:], y[split:], target_col[split:]
-            X, y, target_col = X[:split], y[:split], target_col[:split]
+            if X_val is None or y_val is None or target_col_val is None:
+                assert self.validation_size > 0.0 and self.validation_size < 1.0
+                split = len(X) - int(len(X) * self.validation_size)
+                X_val, y_val, target_col_val = X[split:], y[split:], target_col[split:]
+                X, y, target_col = X[:split], y[:split], target_col[:split]
 
         # train an SGL model
-        if self.sgl_method is not None:
+        if self.sgl_method is not None and self.stacks > 0:
             assert self.relations is not None
             assert self.sgl_func is not None
 
             sgl = SGL(self.estimator, self.sgl_func, self.relations, self.sgl_method, stacks=self.stacks)
-            self.sgl_ = sgl.fit(X, y, target_col)
+            self.sgl_ = sgl.fit(X, y, target_col, fold=fold)
 
         else:
             self.clf_ = clone(self.estimator).fit(X, y)
@@ -86,25 +87,25 @@ class EGGS:
         # train a joint inference model
         if self.joint_model is not None:
 
-            if self.sgl_method is not None:
-                y_hat_val = self.sgl_.predict_proba(X_val, target_col_val)
+            if self.sgl_method is not None and self.stacks > 0:
+                y_hat_val = self.sgl_.predict_proba(X_val, target_col_val, fold=fold)
             else:
                 y_hat_val = self.clf_.predict_proba(X_val)
 
             joint = Joint(self.relations, self.pgm_func, pgm_type=self.joint_model)
-            self.joint_ = joint.fit(y_val, y_hat_val[:, 1], target_col_val)
+            self.joint_ = joint.fit(y_val, y_hat_val[:, 1], target_col_val, fold=fold)
 
         return self
 
-    def predict_proba(self, X, target_col):
-        X = check_array(X)
+    def predict_proba(self, X, target_col, fold=None):
+        X = check_array(X, accept_sparse=True)
         if X.shape[1] != self.n_feats_:
             raise ValueError('X does not have the same number of features!')
 
         # perform SGL inference
-        if self.sgl_method is not None:
+        if self.sgl_method is not None and self.stacks > 0:
             check_is_fitted(self, 'sgl_')
-            y_hat = self.sgl_.predict_proba(X, target_col)
+            y_hat = self.sgl_.predict_proba(X, target_col, fold=fold)
 
         else:
             check_is_fitted(self, 'clf_')

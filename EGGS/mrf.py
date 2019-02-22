@@ -15,7 +15,7 @@ class MRF:
     """
 
     def __init__(self, relations, relations_func, working_dir='.temp/', verbose=0,
-                 epsilon=[0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5], scoring=None):
+                 epsilon=[0.05], scoring=None):
         """
         Initialization of the MRF model.
 
@@ -43,7 +43,7 @@ class MRF:
             self.scoring = average_precision_score
 
     # public
-    def fit(self, y, y_hat, target_col):
+    def fit(self, y, y_hat, target_col, fold=None):
         """
         Train an MRF model.
             y: true labels for target nodes. shape: (n_samples,).
@@ -54,13 +54,14 @@ class MRF:
         relation_epsilons = {}
 
         # test each relation individually
-        target_priors, relations_dict, target_name = self.relations_func(y_hat, target_col, self.relations)
+        target_priors, relations_dict, target_name = self.relations_func(y_hat, target_col, self.relations, fold=fold)
         for relation_type, connections_list in relations_dict.items():
             relation_dict = {relation_type: connections_list}
 
             # test different epsilon values for this relation
             scores = []
             for epsilon in self.epsilon:
+                print('epsilon: %.2f...' % epsilon)
                 targets_dict, relation_dicts = self._generate_mn(target_priors, relation_dict,
                                                                  ep=epsilon, target_name=target_name)
                 y_score = self._inference(targets_dict, relation_dicts)
@@ -75,21 +76,21 @@ class MRF:
 
         return self
 
-    def inference(self, y_hat, target_col):
+    def inference(self, y_hat, target_col, fold=None):
         """
         Joint inference using PSL.
             y_hat: priors for target nodes.
             target_col: list of target_ids.
         """
 
+        print('inference...')
         check_is_fitted(self, 'relation_epsilons_')
-        target_priors, relations_dict, target_name = self.relations_func(y_hat, target_col, self.relations)
+        target_priors, relations_dict, target_name = self.relations_func(y_hat, target_col, self.relations, fold=fold)
         targets_dict, relation_dicts = self._generate_mn(target_priors, relations_dict, target_name=target_name)
         y_score = self._inference(targets_dict, relation_dicts)
         return y_score
 
-    def infer(self, df, mrf_f, rel_pred_f, ep=0.1, max_size=7500,
-              max_edges=40000, dset='test'):
+    def infer(self, df, mrf_f, rel_pred_f, ep=0.1, max_size=7500, max_edges=40000, dset='test'):
         fold = self.config_obj.fold
         relations = self.config_obj.relations
         epsilons = self.config_obj.epsilons
